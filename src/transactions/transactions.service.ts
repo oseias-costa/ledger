@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { Transaction } from 'src/schemas/transaction.schema';
@@ -6,6 +11,7 @@ import mongoose, { Connection, Model } from 'mongoose';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { AccountService } from 'src/account/account.service';
 import { StatementService } from 'src/statement/statement.service';
+import { throws } from 'assert';
 
 @Injectable()
 export class TransactionsService {
@@ -73,17 +79,30 @@ export class TransactionsService {
     return createdTransaction.save();
   }
 
-  async findAll(accountName: string) {
-    const db = this.connection.db;
-    const account = await this.accountService.findOne(accountName);
+  async findAll(accountName: string, metadata?: string) {
+    const meta = JSON.parse(metadata);
 
-    return await this.transactionModel
-      .find({
-        'postings.accountId': account._id,
-      })
-      .populate({ path: 'postings.sourceId', model: 'Account' })
-      .populate({ path: 'postings.accountId', model: 'Account' })
-      .exec();
+    const filter = {};
+
+    Object.entries(meta).forEach(([key, value]) => {
+      const item = `metadata.${key}`;
+      filter[item] = value;
+    });
+
+    try {
+      const account = await this.accountService.findOne(accountName);
+
+      return await this.transactionModel
+        .find({
+          'postings.accountId': account._id,
+          ...filter,
+        })
+        .populate({ path: 'postings.sourceId', model: 'Account' })
+        .populate({ path: 'postings.accountId', model: 'Account' })
+        .exec();
+    } catch {
+      throw new HttpException('Account not found', HttpStatus.NOT_FOUND);
+    }
   }
 
   findOne(id: number) {

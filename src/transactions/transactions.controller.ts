@@ -22,8 +22,11 @@ export class TransactionsController {
   }
 
   @Get()
-  findAll(@Query('account') account: string) {
-    return this.transactionsService.findAll(account);
+  findAll(
+    @Query('account') account: string,
+    @Query('metadata') metadata?: string,
+  ) {
+    return this.transactionsService.findAll(account, metadata);
   }
 
   @Get(':id')
